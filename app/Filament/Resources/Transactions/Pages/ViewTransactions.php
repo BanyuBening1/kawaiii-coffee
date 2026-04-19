@@ -1,0 +1,18 @@
+<?php
+
+namespace App\Filament\Resources\Transactions\Pages;
+
+use App\Filament\Resources\Transactions\TransactionsResource;
+use Filament\Actions\EditAction;
+use Filament\Resources\Pages\ViewRecord;
+
+class ViewTransactions extends ViewRecord
+{
+    protected static string $resource = TransactionsResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+        ];
+    }
+}
