@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\StockMovementController;
 use App\Http\Controllers\Api\ProductIngredientsController;  
 use App\Http\Controllers\Api\AuditLogController;  
 use App\Http\Controllers\Api\NotificationController;  
+use App\Http\Controllers\Api\ReportController;  
 
 // =========================
 // AUTH
@@ -22,6 +23,16 @@ Route::prefix('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
     });
 });
+
+Route::prefix('reports')
+    ->middleware(['auth:sanctum']) // sesuaikan middleware-mu
+    ->group(function () {
+        Route::get('sales-summary', [ReportController::class, 'salesSummary']);
+        Route::get('today-sales',   [ReportController::class, 'todaySales']);
+        Route::get('best-sellers',  [ReportController::class, 'bestSellers']);
+        Route::get('low-stock',     [ReportController::class, 'lowStock']);
+        Route::get('sales-chart',   [ReportController::class, 'salesChart']);
+    });
 
 
 // =========================
@@ -94,12 +105,9 @@ Route::post('products/{id}/ingredients/bulk', [ProductIngredientsController::cla
 Route::prefix('transactions')->middleware('auth:sanctum')->group(function () {
 
     Route::post('/', [TransactionsController::class, 'store']);
+    Route::get('/', [TransactionsController::class, 'index']);
+    Route::get('/{id}', [TransactionsController::class, 'show']);
 
-    // 🔒 hanya admin / owner
-    Route::middleware('role:admin')->group(function () {
-        Route::get('/', [TransactionsController::class, 'index']);
-        Route::get('/{id}', [TransactionsController::class, 'show']);
-    });
 });
 
 

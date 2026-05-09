@@ -151,15 +151,16 @@ class TransactionsController extends Controller
                     $ingredient->save();
 
                     // ➜ simpan stock movement
-                    StockMovement::create([
+                    $movement = new StockMovement([
                         'ingredient_id' => $ingredient->id,
-                        'user_id' => auth()->id(),
-                        'type' => 'OUT',
-                        'quantity' => $used,
-                        'reference' => $transaction->transaction_code,
-                        'description' => 'Penggunaan bahan dari transaksi',
-                        // 'user_id' => auth()->id(), // kalau kamu pakai
+                        'user_id'       => auth()->id(),
+                        'type'          => 'OUT',
+                        'quantity'      => $used,
+                        'reference'     => $transaction->transaction_code,
+                        'description'   => 'Penggunaan bahan dari transaksi',
                     ]);
+                    $movement->skipObserver = true;
+                    $movement->save();
 
                     // ⚠️ Cek stok minimum dan buat notifikasi jika diperlukan
                     if ($admin && $ingredient->stock < $ingredient->min_stock) {

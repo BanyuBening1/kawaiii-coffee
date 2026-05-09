@@ -56,6 +56,9 @@ class ProductsForm
                             ->imageResizeTargetHeight('800')
                             ->maxSize(2048)           // 2 MB
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                            ->deletable()
+                            ->downloadable()
+                            ->dehydrateStateUsing(fn ($state) => is_array($state) ? (array_values($state)[0] ?? null) : $state)
                             ->helperText('Format: JPG, PNG, WEBP · Maks 2MB · Rasio 1:1 direkomendasikan'),
                     ]),
 

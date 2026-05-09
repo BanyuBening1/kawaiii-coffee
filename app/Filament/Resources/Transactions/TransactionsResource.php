@@ -17,8 +17,16 @@ use Filament\Tables\Table;
 class TransactionsResource extends Resource
 {
     protected static ?string $model = Transactions::class;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedReceiptPercent;
+    protected static ?string $navigationLabel = 'Transaksi';
+    protected static ?string $modelLabel = 'Transaksi';
+    protected static ?string $pluralModelLabel = 'Transaksi';
+    protected static ?int $navigationSort = 1;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Laporan';
+    }
 
     protected static ?string $recordTitleAttribute = 'transaction_code';
 

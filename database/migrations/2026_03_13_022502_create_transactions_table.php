@@ -28,6 +28,16 @@ return new class extends Migration
             // relasi ke users (cashier)
             $table->foreignId('cashier_id')->constrained('users')->cascadeOnDelete();
 
+            $table->index(
+                ['status', 'transaction_date'],
+                'idx_trx_status_date'
+            );
+
+            $table->index(
+                ['cashier_id', 'transaction_date'],
+                'idx_trx_cashier_date'
+            );
+
             $table->timestamps();
         });
     }

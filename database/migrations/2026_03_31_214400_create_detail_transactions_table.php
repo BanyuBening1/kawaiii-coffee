@@ -23,6 +23,10 @@ return new class extends Migration
             $table->decimal('unit_cost', 8, 2);  
             $table->decimal('subtotal', 12, 2);
             $table->integer('quantity');
+            $table->index(
+                ['transaction_id', 'product_id'],
+                'idx_td_trx_product'
+            );
 
             $table->timestamps();
         });

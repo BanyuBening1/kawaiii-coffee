@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\DetailTransaction;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Products extends Model
@@ -35,8 +36,13 @@ class Products extends Model
 
     public function ingredients(): BelongsToMany
     {
-        return $this->belongsToMany(Ingredients::class, 'product_ingredients')
+        return $this->belongsToMany(Ingredients::class, 'product_ingredients', 'product_id', 'ingredient_id')
                     ->withPivot('quantity')
                     ->withTimestamps();
+    }
+
+    public function details()
+    {
+        return $this->hasMany(DetailTransaction::class, 'product_id');
     }
 }

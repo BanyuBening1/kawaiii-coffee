@@ -7,11 +7,8 @@
     },
     "servers": [
         {
-            "url": "http://127.0.0.1:8000",
-            "description": "Local API Server"
-        },
-        {
-            "url": "/"
+            "url": "http://202.10.48.252",
+            "description": "Production API Server"
         }
     ],
     "paths": {
@@ -2298,7 +2295,7 @@
                                                     },
                                                     "image": {
                                                         "type": "string",
-                                                        "example": "http://localhost:8000/storage/products/americano.jpg",
+                                                        "example": "http://202.10.48.252/storage/products/americano.jpg",
                                                         "nullable": true
                                                     },
                                                     "created_at": {
@@ -2560,7 +2557,7 @@
                                                 },
                                                 "image": {
                                                     "type": "string",
-                                                    "example": "http://localhost:8000/storage/products/americano.jpg",
+                                                    "example": "http://202.10.48.252/storage/products/americano.jpg",
                                                     "nullable": true
                                                 }
                                             },
@@ -2842,6 +2839,661 @@
                     },
                     "401": {
                         "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/reports/sales-summary": {
+            "get": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Get sales summary",
+                "description": "Mendapatkan ringkasan penjualan berdasarkan periode tertentu",
+                "operationId": "getSalesSummary",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "description": "Periode laporan penjualan",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "daily",
+                                "weekly",
+                                "monthly",
+                                "yearly"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "description": "Tanggal untuk filter (format YYYY-MM-DD)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sales summary berhasil diambil",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Sales summary berhasil diambil."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "period": {
+                                                    "type": "string",
+                                                    "example": "weekly"
+                                                },
+                                                "date_range": {
+                                                    "properties": {
+                                                        "start": {
+                                                            "type": "string",
+                                                            "example": "2026-05-04 00:00:00"
+                                                        },
+                                                        "end": {
+                                                            "type": "string",
+                                                            "example": "2026-05-10 23:59:59"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "total_revenue": {
+                                                    "type": "integer",
+                                                    "example": 250000
+                                                },
+                                                "total_subtotal": {
+                                                    "type": "integer",
+                                                    "example": 240000
+                                                },
+                                                "total_transactions": {
+                                                    "type": "integer",
+                                                    "example": 12
+                                                },
+                                                "average_transaction": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 20833.33
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized / token tidak valid",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validasi gagal",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The period field is required."
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "period": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "example": [
+                                                        "The period field is required."
+                                                    ]
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/reports/today-sales": {
+            "get": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Get today sales",
+                "description": "Mendapatkan data penjualan hari ini dengan breakdown metode pembayaran",
+                "operationId": "getTodaySales",
+                "responses": {
+                    "200": {
+                        "description": "Today sales berhasil diambil",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Today sales berhasil diambil."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2026-05-04"
+                                                },
+                                                "total_revenue": {
+                                                    "type": "integer",
+                                                    "example": 500000
+                                                },
+                                                "total_subtotal": {
+                                                    "type": "integer",
+                                                    "example": 480000
+                                                },
+                                                "total_transactions": {
+                                                    "type": "integer",
+                                                    "example": 20
+                                                },
+                                                "total_items_sold": {
+                                                    "type": "integer",
+                                                    "example": 55
+                                                },
+                                                "payment_breakdown": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "payment_method": {
+                                                                "type": "string",
+                                                                "example": "cash"
+                                                            },
+                                                            "total_transactions": {
+                                                                "type": "integer",
+                                                                "example": 10
+                                                            },
+                                                            "total_revenue": {
+                                                                "type": "integer",
+                                                                "example": 250000
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized / token tidak valid",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/reports/best-sellers": {
+            "get": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Get best sellers",
+                "description": "Mendapatkan daftar produk terlaris berdasarkan periode tertentu",
+                "operationId": "getBestSellers",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "description": "Periode laporan best sellers",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "daily",
+                                "weekly",
+                                "monthly",
+                                "yearly"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "description": "Tanggal untuk filter (format YYYY-MM-DD)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Jumlah data yang ditampilkan",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Best sellers berhasil diambil",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Best sellers berhasil diambil."
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "rank": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "product_id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "product_name": {
+                                                        "type": "string",
+                                                        "example": "Americano"
+                                                    },
+                                                    "selling_price": {
+                                                        "type": "integer",
+                                                        "example": 18000
+                                                    },
+                                                    "total_quantity": {
+                                                        "type": "integer",
+                                                        "example": 120
+                                                    },
+                                                    "total_revenue": {
+                                                        "type": "integer",
+                                                        "example": 2160000
+                                                    },
+                                                    "total_cost": {
+                                                        "type": "integer",
+                                                        "example": 1000000
+                                                    },
+                                                    "total_profit": {
+                                                        "type": "integer",
+                                                        "example": 1160000
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized / token tidak valid",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validasi gagal",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The period field is required."
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "period": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "example": [
+                                                        "The period field is required."
+                                                    ]
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/reports/low-stock": {
+            "get": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Get low stock ingredients",
+                "description": "Mendapatkan daftar bahan dengan stok di bawah minimum",
+                "operationId": "getLowStock",
+                "responses": {
+                    "200": {
+                        "description": "Low stock berhasil diambil",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Low stock berhasil diambil."
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "ingredient_id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "Kopi Arabica"
+                                                    },
+                                                    "unit": {
+                                                        "type": "string",
+                                                        "example": "gram"
+                                                    },
+                                                    "current_stock": {
+                                                        "type": "integer",
+                                                        "example": 200
+                                                    },
+                                                    "min_stock": {
+                                                        "type": "integer",
+                                                        "example": 500
+                                                    },
+                                                    "deficit": {
+                                                        "type": "integer",
+                                                        "example": 300
+                                                    },
+                                                    "stock_percent": {
+                                                        "type": "integer",
+                                                        "example": 40
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized / token tidak valid",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/reports/sales-chart": {
+            "get": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Get sales chart data",
+                "description": "Mendapatkan data grafik penjualan berdasarkan periode tertentu",
+                "operationId": "getSalesChart",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "description": "Periode laporan grafik penjualan",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "daily",
+                                "weekly",
+                                "monthly",
+                                "yearly"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "description": "Tanggal untuk filter (format YYYY-MM-DD)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sales chart berhasil diambil",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Sales chart berhasil diambil."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "period": {
+                                                    "type": "string",
+                                                    "example": "weekly"
+                                                },
+                                                "date_range": {
+                                                    "properties": {
+                                                        "start": {
+                                                            "type": "string",
+                                                            "format": "date",
+                                                            "example": "2026-05-04"
+                                                        },
+                                                        "end": {
+                                                            "type": "string",
+                                                            "format": "date",
+                                                            "example": "2026-05-10"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "chart_data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "label": {
+                                                                "type": "string",
+                                                                "example": "2026-05-04"
+                                                            },
+                                                            "total_revenue": {
+                                                                "type": "integer",
+                                                                "example": 500000
+                                                            },
+                                                            "total_subtotal": {
+                                                                "type": "integer",
+                                                                "example": 480000
+                                                            },
+                                                            "total_transactions": {
+                                                                "type": "integer",
+                                                                "example": 20
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized / token tidak valid",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validasi gagal",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The period field is required."
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "period": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "example": [
+                                                        "The period field is required."
+                                                    ]
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -3601,6 +4253,10 @@
         {
             "name": "Products",
             "description": "Products"
+        },
+        {
+            "name": "Reports",
+            "description": "Reports"
         },
         {
             "name": "Stock Movements",
