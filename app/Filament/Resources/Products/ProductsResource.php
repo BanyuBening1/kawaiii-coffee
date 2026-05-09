@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Products;
 
+use App\Filament\Resources\Products\RelationManagers\IngredientsRelationManager;
 use App\Filament\Resources\Products\Pages\CreateProducts;
 use App\Filament\Resources\Products\Pages\EditProducts;
 use App\Filament\Resources\Products\Pages\ListProducts;
@@ -17,8 +18,16 @@ use Filament\Tables\Table;
 class ProductsResource extends Resource
 {
     protected static ?string $model = Products::class;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingBag;
+    protected static ?string $navigationLabel = 'Produk';
+    protected static ?string $modelLabel = 'Produk';
+    protected static ?string $pluralModelLabel = 'Produk';
+    protected static ?int $navigationSort = 2;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Manajemen Produk';
+    }
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -35,7 +44,7 @@ class ProductsResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            IngredientsRelationManager::class,
         ];
     }
 
@@ -47,4 +56,5 @@ class ProductsResource extends Resource
             'edit' => EditProducts::route('/{record}/edit'),
         ];
     }
+
 }

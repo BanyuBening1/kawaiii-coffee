@@ -32,7 +32,7 @@ class ProductsDocs
                                     new OA\Property(property: "selling_price", type: "number", format: "float", example: 25000),
                                     new OA\Property(property: "cost_price", type: "number", format: "float", example: 15000),
                                     new OA\Property(property: "profit", type: "number", format: "float", example: 10000),
-                                    new OA\Property(property: "image", type: "string", nullable: true, example: "http://localhost:8000/storage/products/americano.jpg"),
+                                    new OA\Property(property: "image", type: "string", nullable: true, example: "http://202.10.48.252/storage/products/americano.jpg"),
                                     new OA\Property(property: "created_at", type: "string", example: "2026-03-10 10:00:00"),
                                 ]
                             )
@@ -164,7 +164,7 @@ class ProductsDocs
                                 new OA\Property(property: "cost_price", type: "number", format: "float", example: 15000),
                                 new OA\Property(property: "profit", type: "number", format: "float", example: 10000),
                                 new OA\Property(property: "is_active", type: "boolean", example: true),
-                                new OA\Property(property: "image", type: "string", nullable: true, example: "http://localhost:8000/storage/products/americano.jpg"),
+                                new OA\Property(property: "image", type: "string", nullable: true, example: "http://202.10.48.252/storage/products/americano.jpg"),
                             ]
                         )
                     ]

@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\AuditLogs;
+use App\Models\AuditLog;
 
 class AuditLogService
 {
@@ -16,7 +16,7 @@ class AuditLogService
      * @param int|null $recordId The ID of the affected record (optional)
      * @param array|null $oldData Previous data for updates (optional)
      * @param array|null $newData New data for creates/updates (optional)
-     * @return AuditLogs
+     * @return AuditLog
      */
     public static function log(
         string $action,
@@ -25,8 +25,8 @@ class AuditLogService
         ?int $recordId = null,
         ?array $oldData = null,
         ?array $newData = null
-    ): AuditLogs {
-        return AuditLogs::create([
+    ): AuditLog {
+        return AuditLog::create([
             'user_id' => auth()->id(),
             'action' => $action,
             'table_name' => $tableName,
@@ -44,14 +44,14 @@ class AuditLogService
      * @param string $description
      * @param int $recordId
      * @param array|null $newData
-     * @return AuditLogs
+     * @return AuditLog
      */
     public static function create(
         string $tableName,
         string $description,
         int $recordId,
         ?array $newData = null
-    ): AuditLogs {
+    ): AuditLog {
         return self::log('CREATE', $tableName, $description, $recordId, null, $newData);
     }
 
@@ -63,7 +63,7 @@ class AuditLogService
      * @param int $recordId
      * @param array|null $oldData
      * @param array|null $newData
-     * @return AuditLogs
+     * @return AuditLog
      */
     public static function update(
         string $tableName,
@@ -71,7 +71,7 @@ class AuditLogService
         int $recordId,
         ?array $oldData = null,
         ?array $newData = null
-    ): AuditLogs {
+    ): AuditLog {
         return self::log('UPDATE', $tableName, $description, $recordId, $oldData, $newData);
     }
 
@@ -82,14 +82,14 @@ class AuditLogService
      * @param string $description
      * @param int $recordId
      * @param array|null $oldData
-     * @return AuditLogs
+     * @return AuditLog
      */
     public static function delete(
         string $tableName,
         string $description,
         int $recordId,
         ?array $oldData = null
-    ): AuditLogs {
+    ): AuditLog {
         return self::log('DELETE', $tableName, $description, $recordId, $oldData);
     }
 }

@@ -10,8 +10,8 @@ use OpenApi\Attributes as OA;
     description: "API untuk sistem POS Kawaiii Coffee"
 )]
 #[OA\Server(
-    url: "http://127.0.0.1:8000",
-    description: "Local API Server"
+    url: "http://202.10.48.252",
+    description: "Production API Server"
 )]
 #[OA\SecurityScheme(
     securityScheme: "bearerAuth",
