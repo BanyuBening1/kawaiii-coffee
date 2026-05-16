@@ -19,7 +19,7 @@ class TransactionsController extends Controller
     ) {}
 
     // =========================
-    // GET ALL TRANSACTIONS
+    // GET ALL TRANSACTIONS HAI
     // =========================
     public function index(Request $request)
     {
