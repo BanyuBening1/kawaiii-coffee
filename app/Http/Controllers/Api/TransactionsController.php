@@ -4,37 +4,33 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Transactions;
-use App\Models\DetailTransaction;
-use App\Models\Products;
-use App\Models\ProductIngredients;
-use App\Models\Ingredients;
-use App\Models\StockMovement;
 use App\Services\AuditLogService;
+use App\Services\PaymentService;
+use App\Services\TransactionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 class TransactionsController extends Controller
 {
+    public function __construct(
+        protected TransactionService $transactionService,
+        protected PaymentService $paymentService,
+    ) {}
+
     // =========================
     // GET ALL TRANSACTIONS
     // =========================
     public function index(Request $request)
     {
-        $query = Transactions::with(['cashier', 'details.product'])
-            ->latest();
+        $query = Transactions::with(['cashier', 'details.product'])->latest();
 
         if ($request->start_date && $request->end_date) {
-            $query->whereBetween('transaction_date', [
-                $request->start_date,
-                $request->end_date
-            ]);
+            $query->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
         }
-
         if ($request->cashier_id) {
             $query->where('cashier_id', $request->cashier_id);
         }
-
         if ($request->payment_method) {
             $query->where('payment_method', $request->payment_method);
         }
@@ -43,163 +39,38 @@ class TransactionsController extends Controller
     }
 
     // =========================
-    // STORE TRANSACTION (INTI)
+    // STORE — Cash/QRIS/Transfer
     // =========================
     public function store(Request $request)
     {
         $request->validate([
-            'user_id' => auth()->id(),
-            'payment_method' => 'required|in:cash,qris,transfer',
-            'paid_amount' => 'required|numeric|min:0',
-            'items' => 'required|array|min:1',
+            'payment_method'     => 'required|in:cash,qris,transfer',
+            'paid_amount'        => 'required|numeric|min:0',
+            'items'              => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.quantity'   => 'required|integer|min:1',
         ]);
 
         return DB::transaction(function () use ($request) {
+            $calculated = $this->transactionService->calculateItems($request->items);
 
-            $subtotal = 0;
-            $details = [];
-
-            // =========================
-            // 1. VALIDASI + HITUNG
-            // =========================
-            foreach ($request->items as $item) {
-
-                $product = Products::findOrFail($item['product_id']);
-                $qty = $item['quantity'];
-
-                $price = $product->selling_price;
-                $cost = $product->cost_price;
-
-                $itemSubtotal = $price * $qty;
-                $subtotal += $itemSubtotal;
-
-                // 🔥 VALIDASI STOK BAHAN
-                $recipes = ProductIngredients::where('product_id', $product->id)->get();
-
-                foreach ($recipes as $recipe) {
-                    $ingredient = Ingredients::find($recipe->ingredient_id);
-
-                    $needed = $recipe->quantity * $qty;
-
-                    if ($ingredient->stock < $needed) {
-                        throw new \Exception("Stok bahan '{$ingredient->name}' tidak cukup untuk {$product->product_name}");
-                    }
-                }
-
-                $details[] = [
-                    'product_id' => $product->id,
-                    'quantity' => $qty,
-                    'unit_price' => $price,
-                    'unit_cost' => $cost,
-                    'subtotal' => $itemSubtotal,
-                ];
-            }
-
-            $total = $subtotal;
-
-            // =========================
-            // 2. VALIDASI PEMBAYARAN
-            // =========================
-            if ($request->paid_amount < $total) {
+            if ($request->paid_amount < $calculated['subtotal']) {
                 throw new \Exception("Uang tidak cukup");
             }
 
-            $change = $request->paid_amount - $total;
-
-            // =========================
-            // 3. SIMPAN TRANSAKSI
-            // =========================
-            $transaction = Transactions::create([
-                'transaction_code' => 'TRX-' . strtoupper(Str::random(8)),
-                'transaction_date' => now(),
-                'subtotal' => $subtotal,
-                'total' => $total,
-                'paid_amount' => $request->paid_amount,
-                'change_amount' => $change,
+            $transaction = $this->transactionService->createTransaction([
+                'subtotal'       => $calculated['subtotal'],
+                'paid_amount'    => $request->paid_amount,
+                'change_amount'  => $request->paid_amount - $calculated['subtotal'],
                 'payment_method' => $request->payment_method,
-                'status' => 'paid',
-                'cashier_id' => auth()->id(),
+                'status'         => 'paid',
+                'cashier_id'     => auth()->id(),
             ]);
 
-            // =========================
-            // 4. SIMPAN DETAIL
-            // =========================
-            foreach ($details as $detail) {
-                $detail['transaction_id'] = $transaction->id;
-                DetailTransaction::create($detail);
-            }
+            $this->transactionService->saveDetails($transaction, $calculated['details']);
+            $this->transactionService->deductStock($transaction, $calculated['details']);
+            $this->transactionService->sendNotifications($transaction);
 
-            // =========================
-            // 5. 🔥 KURANGI STOK + CATAT
-            // =========================
-            $admin = \App\Models\User::where('role_id', 1)->first();
-            
-            foreach ($details as $detail) {
-
-                $recipes = ProductIngredients::where('product_id', $detail['product_id'])->get();
-
-                foreach ($recipes as $recipe) {
-
-                    $ingredient = Ingredients::find($recipe->ingredient_id);
-
-                    $used = $recipe->quantity * $detail['quantity'];
-
-                    // ➜ kurangi stok
-                    $ingredient->stock -= $used;
-                    $ingredient->save();
-
-                    // ➜ simpan stock movement
-                    $movement = new StockMovement([
-                        'ingredient_id' => $ingredient->id,
-                        'user_id'       => auth()->id(),
-                        'type'          => 'OUT',
-                        'quantity'      => $used,
-                        'reference'     => $transaction->transaction_code,
-                        'description'   => 'Penggunaan bahan dari transaksi',
-                    ]);
-                    $movement->skipObserver = true;
-                    $movement->save();
-
-                    // ⚠️ Cek stok minimum dan buat notifikasi jika diperlukan
-                    if ($admin && $ingredient->stock < $ingredient->min_stock) {
-                        // Cek apakah sudah ada notifikasi low_stock untuk ingredient ini hari ini
-                        $existingNotification = \App\Models\Notification::where('user_id', $admin->id)
-                            ->where('type', 'low_stock')
-                            ->where('reference', 'ingredient_' . $ingredient->id)
-                            ->whereDate('created_at', now()->toDateString())
-                            ->exists();
-
-                        if (!$existingNotification) {
-                            notify(
-                                'Stok Menipis',
-                                'Stok ' . $ingredient->name . ' hampir habis (sisa: ' . $ingredient->stock . ' ' . $ingredient->unit . ')',
-                                'low_stock',
-                                'ingredient_' . $ingredient->id,
-                                $admin->id
-                            );
-                        }
-                    }
-                }
-            }
-
-            // =========================
-            // 6. NOTIFIKASI TRANSAKSI
-            // =========================
-            if ($admin) {
-                notify(
-                    'Transaksi Baru',
-                    'Transaksi ' . $transaction->transaction_code . ' berhasil dengan total Rp ' . number_format($transaction->total, 0, ',', '.'),
-                    'transaction',
-                    'transaction_' . $transaction->id,
-                    $admin->id
-                );
-            }
-
-            // =========================
-            // 7. LOG AUDIT
-            // =========================
             AuditLogService::create(
                 'transactions',
                 'Membuat transaksi ' . $transaction->transaction_code,
@@ -207,26 +78,154 @@ class TransactionsController extends Controller
                 $transaction->toArray()
             );
 
-            // =========================
-            // 8. RETURN RESPONSE
-            // =========================
             return response()->json([
                 'message' => 'Transaksi berhasil',
-                'data' => $transaction->load('details.product')
+                'data'    => $transaction->load('details.product'),
             ]);
         });
     }
 
     // =========================
-    // SHOW DETAILdasd
+    // INITIATE — Snap Token
+    // =========================
+    public function initiate(Request $request)
+    {
+        $request->validate([
+            'items'              => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.quantity'   => 'required|integer|min:1',
+        ]);
+
+        return DB::transaction(function () use ($request) {
+            $calculated = $this->transactionService->calculateItems($request->items);
+
+            $transaction = $this->transactionService->createTransaction([
+                'subtotal'       => $calculated['subtotal'],
+                'paid_amount'    => 0,
+                'change_amount'  => 0,
+                'payment_method' => 'midtrans',
+                'status'         => 'pending',
+                'cashier_id'     => auth()->id(),
+            ]);
+
+            $this->transactionService->saveDetails($transaction, $calculated['details']);
+
+            $snapToken = $this->paymentService->createSnapToken(
+                $transaction,
+                $calculated['itemDetails'],
+                auth()->user()
+            );
+
+            return response()->json([
+                'message'          => 'Transaksi dibuat, lanjutkan pembayaran',
+                'transaction_code' => $transaction->transaction_code,
+                'snap_token'       => $snapToken,
+                'client_key'       => env('MIDTRANS_CLIENT_KEY'),
+                'total'            => $calculated['subtotal'],
+            ]);
+        });
+    }
+
+    // =========================
+    // INITIATE QRIS — Core API
+    // =========================
+    public function initiateQris(Request $request)
+    {
+        $request->validate([
+            'items'              => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.quantity'   => 'required|integer|min:1',
+        ]);
+
+        return DB::transaction(function () use ($request) {
+            $calculated = $this->transactionService->calculateItems($request->items);
+
+            $transaction = $this->transactionService->createTransaction([
+                'subtotal'       => $calculated['subtotal'],
+                'paid_amount'    => 0,
+                'change_amount'  => 0,
+                'payment_method' => 'qris',
+                'status'         => 'pending',
+                'cashier_id'     => auth()->id(),
+            ]);
+
+            $this->transactionService->saveDetails($transaction, $calculated['details']);
+
+            $qrUrl = $this->paymentService->createQris(
+                $transaction,
+                $calculated['itemDetails']
+            );
+
+            return response()->json([
+                'message'          => 'QRIS berhasil dibuat',
+                'transaction_id'   => $transaction->id,        // ← tambah ini
+                'transaction_code' => $transactionCode,
+                'qr_url'           => $qrUrl,
+                'total'            => $subtotal,
+                'expired_at'       => now()->addMinutes(15)->toDateTimeString(),
+            ]);
+        });
+    }
+
+    // =========================
+    // MIDTRANS CALLBACK
+    // =========================
+    public function midtransCallback(Request $request)
+    {
+        try {
+            Log::info('Midtrans callback received', $request->all());
+
+            $result      = $this->paymentService->handleCallback($request->all());
+            $orderId     = $request->input('order_id');
+            $transaction = Transactions::where('transaction_code', $orderId)->first();
+
+            if ($result === 'paid' && $transaction) {
+                $details = $transaction->details->map(fn ($d) => [
+                    'product_id' => $d->product_id,
+                    'quantity'   => $d->quantity,
+                    'unit_price' => $d->unit_price,
+                    'unit_cost'  => $d->unit_cost,
+                    'subtotal'   => $d->subtotal,
+                ])->toArray();
+
+                $this->transactionService->deductStock($transaction, $details);
+                $this->transactionService->sendNotifications($transaction);
+
+                AuditLogService::create(
+                    'transactions',
+                    'Pembayaran Midtrans dikonfirmasi: ' . $orderId,
+                    $transaction->id,
+                    $transaction->toArray()
+                );
+            }
+
+            return response()->json(['message' => 'OK']);
+
+        } catch (\Exception $e) {
+            Log::error('Midtrans callback error: ' . $e->getMessage());
+            $code = $e->getCode() === 403 ? 403 : 500;
+            return response()->json(['message' => 'Error'], $code);
+        }
+    }
+
+    // =========================
+    // SHOW DETAIL
     // =========================
     public function show($id)
     {
-        $transaction = Transactions::with([
-            'cashier',
-            'details.product'
-        ])->findOrFail($id);
-
+        $transaction = Transactions::with(['cashier', 'details.product'])->findOrFail($id);
         return response()->json($transaction);
+    }
+
+    public function checkStatus($id)
+    {
+        $transaction = Transactions::where('transaction_code', $id)
+            ->select('transaction_code', 'status', 'payment_method', 'total', 'updated_at')
+            ->firstOrFail();
+
+        return response()->json([
+            'message' => 'OK',
+            'data'    => $transaction,
+        ]);
     }
 }

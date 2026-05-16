@@ -103,17 +103,18 @@ Route::post('products/{id}/ingredients/bulk', [ProductIngredientsController::cla
 // TRANSACTIONS
 // =========================
 Route::prefix('transactions')->middleware('auth:sanctum')->group(function () {
-
     Route::post('/', [TransactionsController::class, 'store']);
+    Route::post('/initiate', [TransactionsController::class, 'initiate']);
+    Route::post('/initiate-qris', [TransactionsController::class, 'initiateQris']); // ← tambah ini
     Route::get('/', [TransactionsController::class, 'index']);
+    Route::get('/{id}/status', [TransactionsController::class, 'checkStatus']); 
     Route::get('/{id}', [TransactionsController::class, 'show']);
-
 });
 
+Route::post('/midtrans/callback', [TransactionsController::class, 'midtransCallback']);
 
-// =========================
-// STOCK MOVEMENTS (🔥 BARU)
-// =========================
+
+
 Route::prefix('stock-movements')->middleware('auth:sanctum')->group(function () {
 
     Route::get('/', [StockMovementController::class, 'index']);
@@ -135,3 +136,4 @@ Route::prefix('notifications')->middleware('auth:sanctum')->group(function () {
     Route::patch('/read-all', [NotificationController::class, 'markAllAsRead']);
 
 });
+
