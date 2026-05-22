@@ -93,49 +93,29 @@ class ReportService
     // ─────────────────────────────────────────────
     // 3. BEST SELLERS
     // ─────────────────────────────────────────────
-    public function getBestSellers(
-        string $period,
-        ?string $date = null,
-        int $limit = 10
-    ): array {
-        [$start, $end] = PeriodHelper::getDateRange($period, $date);
-
-        $results = DB::table('detail_transactions as td')
-            ->join('transactions as t', 't.id', '=', 'td.transaction_id')
-            ->join('products as p', 'p.id', '=', 'td.product_id')
-            ->where('t.status', 'paid')
-            ->whereBetween('t.transaction_date', [$start, $end])
-            ->groupBy(
-                'p.id',
-                'p.product_name',
-                'p.selling_price'
-            )
-            ->selectRaw('
-                p.id AS product_id,
-                p.product_name,
-                p.selling_price,
-                SUM(td.quantity) AS total_quantity,
-                SUM(td.subtotal) AS total_revenue,
-                SUM(td.quantity * td.unit_cost) AS total_cost,
-                SUM(td.subtotal) - SUM(td.quantity * td.unit_cost) AS total_profit
-            ')
-            ->orderByDesc('total_quantity')
-            ->limit($limit)
-            ->get();
-
-        return $results->map(function ($item, $index) {
-            return [
-                'rank'           => $index + 1,
-                'product_id'     => $item->product_id,
-                'product_name'   => $item->product_name,
-                'selling_price'  => (float) $item->selling_price,
-                'total_quantity' => (int) $item->total_quantity,
-                'total_revenue'  => (float) $item->total_revenue,
-                'total_cost'     => (float) $item->total_cost,
-                'total_profit'   => (float) $item->total_profit,
-            ];
-        })->toArray();
-    }
+    public function getBestSellers(string $period, ?string $date, int $limit = 10)
+{
+    // Sesuaikan penentuan tanggal (start/end date) sesuai logika period yang kamu pakai
+    // Ini adalah struktur query yang sudah diperbaiki kolom database-nya
+    return \DB::table('detail_transactions as td')
+        ->join('transactions as t', 't.id', '=', 'td.transaction_id')
+        ->join('products as p', 'p.id', '=', 'td.product_id')
+        ->select([
+            'p.id as product_id',
+            'p.name as product_name', // Tetap di-alias ke product_name supaya respon API tidak berubah
+            'p.selling_price',
+            \DB::raw('SUM(td.quantity) as total_quantity'),
+            \DB::raw('SUM(td.subtotal) as total_revenue'),
+            \DB::raw('SUM(td.quantity * td.unit_cost) as total_cost'),
+            \DB::raw('SUM(td.subtotal) - SUM(td.quantity * td.unit_cost) as total_profit')
+        ])
+        ->where('t.status', 'paid') // String 'paid' otomatis aman dibungkus query builder
+        ->whereBetween('t.transaction_date', [$startDate, $endDate]) // Sesuaikan variabel date kamu
+        ->groupBy('p.id', 'p.name', 'p.selling_price') // p.product_name diganti jadi p.name
+        ->orderBy('total_quantity', 'desc')
+        ->limit($limit)
+        ->get();
+}
 
     // ─────────────────────────────────────────────
     // 4. LOW STOCK

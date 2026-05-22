@@ -19,7 +19,7 @@ class TransactionsController extends Controller
     ) {}
 
     // =========================
-    // GET ALL TRANSACTIONS HAI
+    // GET ALL TRANSACTIONS
     // =========================
     public function index(Request $request)
     {
@@ -51,38 +51,45 @@ class TransactionsController extends Controller
             'items.*.quantity'   => 'required|integer|min:1',
         ]);
 
-        return DB::transaction(function () use ($request) {
-            $calculated = $this->transactionService->calculateItems($request->items);
+        try {
+            return DB::transaction(function () use ($request) {
+                $calculated = $this->transactionService->calculateItems($request->items);
 
-            if ($request->paid_amount < $calculated['subtotal']) {
-                throw new \Exception("Uang tidak cukup");
-            }
+                if ($request->paid_amount < $calculated['subtotal']) {
+                    throw new \Exception("Uang tidak cukup");
+                }
 
-            $transaction = $this->transactionService->createTransaction([
-                'subtotal'       => $calculated['subtotal'],
-                'paid_amount'    => $request->paid_amount,
-                'change_amount'  => $request->paid_amount - $calculated['subtotal'],
-                'payment_method' => $request->payment_method,
-                'status'         => 'paid',
-                'cashier_id'     => auth()->id(),
-            ]);
+                $transaction = $this->transactionService->createTransaction([
+                    'subtotal'       => $calculated['subtotal'],
+                    'paid_amount'    => $request->paid_amount,
+                    'change_amount'  => $request->paid_amount - $calculated['subtotal'],
+                    'payment_method' => $request->payment_method,
+                    'status'         => 'paid',
+                    'cashier_id'     => auth()->id(),
+                ]);
 
-            $this->transactionService->saveDetails($transaction, $calculated['details']);
-            $this->transactionService->deductStock($transaction, $calculated['details']);
-            $this->transactionService->sendNotifications($transaction);
+                $this->transactionService->saveDetails($transaction, $calculated['details']);
+                $this->transactionService->deductStock($transaction, $calculated['details']);
+                $this->transactionService->sendNotifications($transaction);
 
-            AuditLogService::create(
-                'transactions',
-                'Membuat transaksi ' . $transaction->transaction_code,
-                $transaction->id,
-                $transaction->toArray()
-            );
+                AuditLogService::create(
+                    'transactions',
+                    'Membuat transaksi ' . $transaction->transaction_code,
+                    $transaction->id,
+                    $transaction->toArray()
+                );
 
-            return response()->json([
-                'message' => 'Transaksi berhasil',
-                'data'    => $transaction->load('details.product'),
-            ]);
-        });
+                return response()->json([
+                    'message'        => 'Transaksi berhasil',
+                    'transaction_id' => $transaction->id,
+                    'data'           => $transaction->load('details.product'),
+                ]);
+            });
+
+        } catch (\Exception $e) {
+            $code = str_contains($e->getMessage(), 'tidak cukup') ? 422 : 500;
+            return response()->json(['message' => $e->getMessage()], $code);
+        }
     }
 
     // =========================
@@ -96,34 +103,41 @@ class TransactionsController extends Controller
             'items.*.quantity'   => 'required|integer|min:1',
         ]);
 
-        return DB::transaction(function () use ($request) {
-            $calculated = $this->transactionService->calculateItems($request->items);
+        try {
+            return DB::transaction(function () use ($request) {
+                $calculated = $this->transactionService->calculateItems($request->items);
 
-            $transaction = $this->transactionService->createTransaction([
-                'subtotal'       => $calculated['subtotal'],
-                'paid_amount'    => 0,
-                'change_amount'  => 0,
-                'payment_method' => 'midtrans',
-                'status'         => 'pending',
-                'cashier_id'     => auth()->id(),
-            ]);
+                $transaction = $this->transactionService->createTransaction([
+                    'subtotal'       => $calculated['subtotal'],
+                    'paid_amount'    => 0,
+                    'change_amount'  => 0,
+                    'payment_method' => 'midtrans',
+                    'status'         => 'pending',
+                    'cashier_id'     => auth()->id(),
+                ]);
 
-            $this->transactionService->saveDetails($transaction, $calculated['details']);
+                $this->transactionService->saveDetails($transaction, $calculated['details']);
 
-            $snapToken = $this->paymentService->createSnapToken(
-                $transaction,
-                $calculated['itemDetails'],
-                auth()->user()
-            );
+                $snapToken = $this->paymentService->createSnapToken(
+                    $transaction,
+                    $calculated['itemDetails'],
+                    auth()->user()
+                );
 
-            return response()->json([
-                'message'          => 'Transaksi dibuat, lanjutkan pembayaran',
-                'transaction_code' => $transaction->transaction_code,
-                'snap_token'       => $snapToken,
-                'client_key'       => env('MIDTRANS_CLIENT_KEY'),
-                'total'            => $calculated['subtotal'],
-            ]);
-        });
+                return response()->json([
+                    'message'          => 'Transaksi dibuat, lanjutkan pembayaran',
+                    'transaction_id'   => $transaction->id,
+                    'transaction_code' => $transaction->transaction_code,
+                    'snap_token'       => $snapToken,
+                    'client_key'       => env('MIDTRANS_CLIENT_KEY'),
+                    'total'            => $calculated['subtotal'],
+                ]);
+            });
+
+        } catch (\Exception $e) {
+            $code = str_contains($e->getMessage(), 'tidak cukup') ? 422 : 500;
+            return response()->json(['message' => $e->getMessage()], $code);
+        }
     }
 
     // =========================
@@ -137,34 +151,46 @@ class TransactionsController extends Controller
             'items.*.quantity'   => 'required|integer|min:1',
         ]);
 
-        return DB::transaction(function () use ($request) {
-            $calculated = $this->transactionService->calculateItems($request->items);
+        try {
+            return DB::transaction(function () use ($request) {
+                $calculated = $this->transactionService->calculateItems($request->items);
 
-            $transaction = $this->transactionService->createTransaction([
-                'subtotal'       => $calculated['subtotal'],
-                'paid_amount'    => 0,
-                'change_amount'  => 0,
-                'payment_method' => 'qris',
-                'status'         => 'pending',
-                'cashier_id'     => auth()->id(),
+                $transaction = $this->transactionService->createTransaction([
+                    'subtotal'       => $calculated['subtotal'],
+                    'paid_amount'    => 0,
+                    'change_amount'  => 0,
+                    'payment_method' => 'qris',
+                    'status'         => 'pending',
+                    'cashier_id'     => auth()->id(),
+                ]);
+
+                $this->transactionService->saveDetails($transaction, $calculated['details']);
+
+                $qrUrl = $this->paymentService->createQris(
+                    $transaction,
+                    $calculated['itemDetails']
+                );
+
+                return response()->json([
+                    'message'          => 'QRIS berhasil dibuat',
+                    'transaction_id'   => $transaction->id,
+                    'transaction_code' => $transaction->transaction_code,
+                    'qr_url'           => $qrUrl,
+                    'total'            => $calculated['subtotal'],
+                    'expired_at'       => now()->addMinutes(15)->toDateTimeString(),
+                ]);
+            });
+
+        } catch (\Exception $e) {
+            Log::error('INITIATE QRIS ERROR: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
             ]);
 
-            $this->transactionService->saveDetails($transaction, $calculated['details']);
-
-            $qrUrl = $this->paymentService->createQris(
-                $transaction,
-                $calculated['itemDetails']
-            );
-
+            $code = str_contains($e->getMessage(), 'tidak cukup') ? 422 : 500;
             return response()->json([
-                'message'          => 'QRIS berhasil dibuat',
-                'transaction_id'   => $transaction->id,        // ← tambah ini
-                'transaction_code' => $transactionCode,
-                'qr_url'           => $qrUrl,
-                'total'            => $subtotal,
-                'expired_at'       => now()->addMinutes(15)->toDateTimeString(),
-            ]);
-        });
+                'message' => $e->getMessage(),
+            ], $code);
+        }
     }
 
     // =========================
@@ -209,23 +235,33 @@ class TransactionsController extends Controller
     }
 
     // =========================
+    // CHECK STATUS
+    // =========================
+    public function checkStatus($id)
+    {
+        $transaction = Transactions::where('transaction_code', $id)
+            ->select('id', 'transaction_code', 'status', 'payment_method', 'total', 'updated_at')
+            ->firstOrFail();
+
+        return response()->json([
+            'message' => 'OK',
+            'data'    => [
+                'transaction_id'   => $transaction->id,
+                'transaction_code' => $transaction->transaction_code,
+                'status'           => $transaction->status,
+                'payment_method'   => $transaction->payment_method,
+                'total'            => $transaction->total,
+                'updated_at'       => $transaction->updated_at,
+            ],
+        ]);
+    }
+
+    // =========================
     // SHOW DETAIL
     // =========================
     public function show($id)
     {
         $transaction = Transactions::with(['cashier', 'details.product'])->findOrFail($id);
         return response()->json($transaction);
-    }
-
-    public function checkStatus($id)
-    {
-        $transaction = Transactions::where('transaction_code', $id)
-            ->select('transaction_code', 'status', 'payment_method', 'total', 'updated_at')
-            ->firstOrFail();
-
-        return response()->json([
-            'message' => 'OK',
-            'data'    => $transaction,
-        ]);
     }
 }

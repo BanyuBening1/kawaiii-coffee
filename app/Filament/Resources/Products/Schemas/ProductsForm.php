@@ -2,13 +2,14 @@
 
 namespace App\Filament\Resources\Products\Schemas;
 
+use App\Models\Ingredients;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
-use Filament\Schemas\Components\Section;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
@@ -37,7 +38,7 @@ class ProductsForm
                             ->relationship('category', 'name')
                             ->searchable()
                             ->preload()
-                            ->required()
+                            ->required(),
                     ]),
 
                 // ── Section 2: Foto Produk ─────────────────────────────────
@@ -50,11 +51,11 @@ class ProductsForm
                             ->image()
                             ->disk('public')
                             ->directory('products')
-                            ->imageEditor()           // built-in crop & rotate
+                            ->imageEditor()
                             ->imageCropAspectRatio('1:1')
                             ->imageResizeTargetWidth('800')
                             ->imageResizeTargetHeight('800')
-                            ->maxSize(2048)           // 2 MB
+                            ->maxSize(2048)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
                             ->deletable()
                             ->downloadable()
@@ -74,7 +75,7 @@ class ProductsForm
                             ->numeric()
                             ->prefix('Rp')
                             ->minValue(0)
-                            ->live(onBlur: true),    // trigger margin update
+                            ->live(onBlur: true),
 
                         TextInput::make('cost_price')
                             ->label('Harga Modal')
@@ -82,9 +83,8 @@ class ProductsForm
                             ->numeric()
                             ->prefix('Rp')
                             ->minValue(0)
-                            ->live(onBlur: true),    // trigger margin update
+                            ->live(onBlur: true),
 
-                        // Margin preview — read-only, reactive
                         Placeholder::make('margin_preview')
                             ->label('Estimasi Margin')
                             ->columnSpanFull()
@@ -105,7 +105,7 @@ class ProductsForm
 
                                 $fmt = fn (float $n) => 'Rp ' . number_format($n, 0, ',', '.');
 
-                                return "{$emoji} {$fmt($profit)} profit · margin {$margin}% "
+                                return "{$emoji} {$fmt($profit)} profit · margin " . round($margin, 1) . "% "
                                     . "({$fmt($sell)} − {$fmt($cost)})";
                             }),
                     ]),
@@ -121,6 +121,34 @@ class ProductsForm
                             ->default(true)
                             ->onColor('success')
                             ->offColor('danger'),
+                    ]),
+
+                // ── Section 5: Resep & Bahan Baku ──────────────────────────
+                Section::make('Resep & Bahan Baku')
+                    ->description('Tambahkan minimal 1 bahan baku untuk produk ini.')
+                    ->icon('heroicon-o-beaker')
+                    ->visibleOn('create')
+                    ->schema([
+                        Repeater::make('recipe')
+                            ->label('')
+                            ->schema([
+                                Select::make('ingredient_id')
+                                    ->label('Bahan Baku')
+                                    ->options(Ingredients::pluck('name', 'id'))
+                                    ->searchable()
+                                    ->required(),
+
+                                TextInput::make('quantity')
+                                    ->label('Jumlah')
+                                    ->numeric()
+                                    ->minValue(0.1)
+                                    ->required(),
+                            ])
+                            ->columns(2)
+                            ->minItems(1)
+                            ->addActionLabel('Tambah Bahan')
+                            ->reorderable(false)
+                            ->dehydrated(false), // tidak langsung disimpan ke DB
                     ]),
             ]);
     }

@@ -47,21 +47,70 @@ class AuditLogInfolist
                             ->columnSpanFull(),
                     ]),
 
-                // ── Section 2: Data ─────────────────────────────────────────
-                Section::make('Detail Perubahan')
-                    ->description('Data sebelum dan sesudah perubahan.')
-                    ->icon('heroicon-o-code-bracket')
-                    ->columns(2)
+                // ── Section 2: Data Lama ────────────────────────────────────
+                Section::make('Data Sebelum Perubahan')
+                    ->description('Kondisi data sebelum diubah.')
+                    ->icon('heroicon-o-arrow-left-circle')
                     ->schema([
                         TextEntry::make('old_data')
-                            ->label('Data Lama')
-                            ->formatStateUsing(fn ($state) => $state ? json_encode(json_decode($state), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '—')
-                            ->extraAttributes(['style' => 'font-family: monospace; white-space: pre-wrap; font-size: 0.8rem;']),
+                            ->label('')
+                            ->columnSpanFull()
+                            ->formatStateUsing(function ($state) {
+                                if (!$state) return '—';
 
+                                $data = is_string($state) ? json_decode($state, true) : $state;
+
+                                if (!is_array($data)) return '—';
+
+                                $rows = collect($data)
+                                    ->map(fn ($value, $key) => 
+                                        "<tr>
+                                            <td style='padding:6px 12px; font-weight:600; color:#6b7280; width:35%; border-bottom:1px solid #f3f4f6;'>
+                                                " . ucwords(str_replace('_', ' ', $key)) . "
+                                            </td>
+                                            <td style='padding:6px 12px; border-bottom:1px solid #f3f4f6;'>
+                                                " . ($value ?? '—') . "
+                                            </td>
+                                        </tr>"
+                                    )
+                                    ->implode('');
+
+                                return "<table style='width:100%; border-collapse:collapse; font-size:0.875rem;'>$rows</table>";
+                            })
+                            ->html(),
+                    ]),
+
+                // ── Section 3: Data Baru ────────────────────────────────────
+                Section::make('Data Sesudah Perubahan')
+                    ->description('Kondisi data setelah diubah.')
+                    ->icon('heroicon-o-arrow-right-circle')
+                    ->schema([
                         TextEntry::make('new_data')
-                            ->label('Data Baru')
-                            ->formatStateUsing(fn ($state) => $state ? json_encode(json_decode($state), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '—')
-                            ->extraAttributes(['style' => 'font-family: monospace; white-space: pre-wrap; font-size: 0.8rem;']),
+                            ->label('')
+                            ->columnSpanFull()
+                            ->formatStateUsing(function ($state) {
+                                if (!$state) return '—';
+
+                                $data = is_string($state) ? json_decode($state, true) : $state;
+
+                                if (!is_array($data)) return '—';
+
+                                $rows = collect($data)
+                                    ->map(fn ($value, $key) =>
+                                        "<tr>
+                                            <td style='padding:6px 12px; font-weight:600; color:#6b7280; width:35%; border-bottom:1px solid #f3f4f6;'>
+                                                " . ucwords(str_replace('_', ' ', $key)) . "
+                                            </td>
+                                            <td style='padding:6px 12px; border-bottom:1px solid #f3f4f6;'>
+                                                " . ($value ?? '—') . "
+                                            </td>
+                                        </tr>"
+                                    )
+                                    ->implode('');
+
+                                return "<table style='width:100%; border-collapse:collapse; font-size:0.875rem;'>$rows</table>";
+                            })
+                            ->html(),
                     ]),
 
             ]);
