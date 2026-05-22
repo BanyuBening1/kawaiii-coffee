@@ -21,23 +21,17 @@ class ProductsTable
             ->columns([
                 ImageColumn::make('image')
                     ->label('')
-                    ->disk('public')
-                    ->getStateUsing(function ($record): ?string {
-                        if (blank($record->image)) {
-                            return null;
-                        }
-
-                        return trim($record->image);
-                    })
+                    ->getStateUsing(fn ($record) => $record->image 
+                        ? asset('storage/' . $record->image) 
+                        : asset('images/no-image.png')
+                    )
                     ->height(48)
                     ->width(48)
                     ->square()
                     ->extraImgAttributes([
                         'style'   => 'object-fit: contain; background-color: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;',
                         'loading' => 'lazy',
-                        'onerror' => "this.onerror=null;this.src='" . asset('images/no-image.png') . "';",
                     ])
-                    ->defaultImageUrl(asset('images/no-image.png'))
                     ->visibleFrom('md'),
 
                 TextColumn::make('name')

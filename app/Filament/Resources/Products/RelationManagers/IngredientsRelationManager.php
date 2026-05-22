@@ -3,10 +3,12 @@
 namespace App\Filament\Resources\Products\RelationManagers;
 
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Actions\AttachAction;
 use Filament\Actions\DetachAction;
+use Filament\Actions\EditAction;
 use Filament\Actions\DetachBulkAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -63,16 +65,19 @@ class IngredientsRelationManager extends RelationManager
                     ->numeric(2)
                     ->badge()
                     ->color(fn ($record) => match (true) {
-                        $record->stock <= 0              => 'danger',
-                        $record->stock <= ($record->min_stock ?? 0) => 'warning',
-                        default                          => 'success',
+                        $record->stock <= 0                          => 'danger',
+                        $record->stock <= ($record->min_stock ?? 0)  => 'warning',
+                        default                                      => 'success',
                     })
                     ->formatStateUsing(fn ($state, $record) => $state . ' ' . $record->unit),
             ])
             ->headerActions([
                 AttachAction::make()
                     ->label('Tambah Bahan')
+                    ->attachAnother(false)
                     ->modalHeading('Tambah Bahan ke Resep')
+                    ->modalSubmitActionLabel('Tambahkan')
+                    ->modalCancelActionLabel('Batal')
                     ->preloadRecordSelect()
                     ->form(fn (AttachAction $action): array => [
                         $action->getRecordSelect()
@@ -91,15 +96,41 @@ class IngredientsRelationManager extends RelationManager
                     ]),
             ])
             ->actions([
-                DetachAction::make()
-                    ->label('Hapus')
-                    ->modalHeading('Hapus Bahan dari Resep')
-                    ->modalDescription('Bahan ini akan dihapus dari resep produk.')
-                    ->modalSubmitActionLabel('Ya, Hapus'),
+                EditAction::make()
+                    ->label('Edit')
+                    ->modalHeading('Edit Jumlah Bahan')
+                    ->modalSubmitActionLabel('Simpan')
+                    ->modalCancelActionLabel('Batal')
+                    ->form([
+                        TextInput::make('quantity')
+                            ->label('Jumlah yang Dibutuhkan')
+                            ->placeholder('Contoh: 250')
+                            ->helperText('Jumlah bahan per 1 produk yang dibuat.')
+                            ->required()
+                            ->numeric()
+                            ->minValue(0),
+                    ]),
             ])
             ->bulkActions([
                 DetachBulkAction::make()
-                    ->label('Hapus Terpilih'),
+                    ->label('Hapus Terpilih')
+                    ->modalHeading('Hapus Bahan Terpilih')
+                    ->modalDescription('Bahan yang dipilih akan dihapus dari resep produk.')
+                    ->modalSubmitActionLabel('Ya, Hapus')
+                    ->before(function (DetachBulkAction $action) {
+                        $ingredientCount = $this->getOwnerRecord()->ingredients()->count();
+                        $selectedCount   = count($this->getSelectedTableRecords());
+
+                        if ($ingredientCount - $selectedCount < 1) {
+                            Notification::make()
+                                ->title('Tidak bisa menghapus!')
+                                ->body('Produk harus memiliki minimal 1 bahan baku.')
+                                ->danger()
+                                ->send();
+
+                            $action->cancel();
+                        }
+                    }),
             ]);
     }
 }
