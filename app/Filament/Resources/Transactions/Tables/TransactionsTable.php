@@ -2,12 +2,15 @@
 
 namespace App\Filament\Resources\Transactions\Tables;
 
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\ViewAction;
+use App\Models\Transactions;
+use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Table;
+
+// IMPORT COMPONENT STANDAR FILAMENT V4
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 
 class TransactionsTable
 {
@@ -19,7 +22,6 @@ class TransactionsTable
                     ->label('Kode Transaksi')
                     ->searchable()
                     ->copyable()
-                    ->copyMessage('Kode disalin!')
                     ->weight(\Filament\Support\Enums\FontWeight::Bold)
                     ->icon('heroicon-m-receipt-percent'),
 
@@ -31,8 +33,8 @@ class TransactionsTable
 
                 TextColumn::make('cashier.name')
                     ->label('Kasir')
-                    ->icon('heroicon-m-user-circle')
-                    ->searchable(),
+                    ->searchable()
+                    ->icon('heroicon-m-user-circle'),
 
                 TextColumn::make('payment_method')
                     ->label('Pembayaran')
@@ -42,17 +44,17 @@ class TransactionsTable
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'paid'      => 'success',
-                        'pending'   => 'warning',
+                    ->color(fn(string $state) => match ($state) {
+                        'paid' => 'success',
+                        'pending' => 'warning',
                         'cancelled' => 'danger',
-                        default     => 'gray',
+                        default => 'gray',
                     })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'paid'      => 'Lunas',
-                        'pending'   => 'Pending',
+                    ->formatStateUsing(fn(string $state) => match ($state) {
+                        'paid' => 'Lunas',
+                        'pending' => 'Pending',
                         'cancelled' => 'Dibatalkan',
-                        default     => $state,
+                        default => $state,
                     }),
 
                 TextColumn::make('total')
@@ -65,52 +67,45 @@ class TransactionsTable
                 TextColumn::make('paid_amount')
                     ->label('Dibayar')
                     ->money('IDR')
-                    ->sortable()
                     ->toggleable(),
 
                 TextColumn::make('change_amount')
                     ->label('Kembalian')
                     ->money('IDR')
-                    ->sortable()
                     ->toggleable(),
-
-                // Hidden by default - tidak penting untuk dilihat setiap saat
-                TextColumn::make('created_at')
-                    ->label('Dibuat')
-                    ->dateTime('d M Y, H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                TextColumn::make('updated_at')
-                    ->label('Diupdate')
-                    ->dateTime('d M Y, H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('transaction_date', 'desc') // Transaksi terbaru di atas
+            ->defaultSort('transaction_date', 'desc')
+
             ->filters([
                 SelectFilter::make('status')
-                    ->label('Status')
                     ->options([
-                        'paid'      => 'Lunas',
-                        'pending'   => 'Pending',
+                        'paid' => 'Lunas',
+                        'pending' => 'Pending',
                         'cancelled' => 'Dibatalkan',
                     ]),
 
                 SelectFilter::make('payment_method')
-                    ->label('Metode Pembayaran')
                     ->options([
-                        'cash'    => 'Tunai',
-                        'qris'    => 'QRIS',
-                        'transfer'=> 'Transfer',
+                        'cash' => 'Tunai',
+                        'qris' => 'QRIS',
+                        'transfer' => 'Transfer',
                     ]),
             ])
-            ->recordActions([
-                ViewAction::make()
+
+            ->actions([
+                Action::make('detail')
                     ->label('Detail')
-                    ->icon('heroicon-o-eye'),
+                    ->icon('heroicon-o-eye')
+                    ->modalHeading('Detail Transaksi')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup')
+                    ->modalContent(fn(Transactions $record) => view(
+                        'filament.transactions.detail',
+                        ['transaction' => $record]
+                    )),
             ])
-            ->toolbarActions([
+
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
