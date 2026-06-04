@@ -10,7 +10,10 @@ use App\Models\Products;
 use App\Models\StockMovement;
 use App\Models\Transactions;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Kreait\Firebase\Messaging\CloudMessage;
+use Kreait\Firebase\Messaging\Notification as FcmNotification;
 
 class TransactionService
 {
@@ -32,7 +35,6 @@ class TransactionService
             $itemSubtotal = $price * $qty;
             $subtotal    += $itemSubtotal;
 
-            // Validasi stok bahan
             $recipes = ProductIngredients::where('product_id', $product->id)->get();
             foreach ($recipes as $recipe) {
                 $ingredient = Ingredients::find($recipe->ingredient_id);
@@ -95,7 +97,7 @@ class TransactionService
     // =========================
     public function deductStock(Transactions $transaction, array $details): void
     {
-        $admin = User::where('role_id', 1)->first();
+        $cashier = User::find($transaction->cashier_id);
 
         foreach ($details as $detail) {
             $recipes = ProductIngredients::where('product_id', $detail['product_id'])->get();
@@ -118,20 +120,26 @@ class TransactionService
                 $movement->skipObserver = true;
                 $movement->save();
 
-                if ($admin && $ingredient->stock < $ingredient->min_stock) {
-                    $exists = Notification::where('user_id', $admin->id)
-                        ->where('type', 'low_stock')
-                        ->where('reference', 'ingredient_' . $ingredient->id)
-                        ->whereDate('created_at', now()->toDateString())
-                        ->exists();
+                if ($ingredient->stock < $ingredient->min_stock) {
+                    // PERBAIKAN: Filter anti-spam dimatikan agar notifikasi stok selalu dikirim saat testing
+                    $existsForCashier = false;
 
-                    if (!$exists) {
+                    if ($cashier && !$existsForCashier) {
+                        // Simpan notifikasi ke database untuk kasir
                         notify(
                             'Stok Menipis',
                             'Stok ' . $ingredient->name . ' hampir habis (sisa: ' . $ingredient->stock . ' ' . $ingredient->unit . ')',
                             'low_stock',
                             'ingredient_' . $ingredient->id,
-                            $admin->id
+                            $cashier->id
+                        );
+
+                        // Kirim FCM ke kasir
+                        $this->sendFcmToUser(
+                            $cashier,
+                            'Stok Menipis',
+                            'Stok ' . $ingredient->name . ' hampir habis (sisa: ' . $ingredient->stock . ' ' . $ingredient->unit . ')',
+                            ['type' => 'low_stock', 'ingredient_id' => (string) $ingredient->id]
                         );
                     }
                 }
@@ -140,19 +148,64 @@ class TransactionService
     }
 
     // =========================
-    // Kirim Notifikasi
+    // Kirim Notifikasi Transaksi
     // =========================
     public function sendNotifications(Transactions $transaction): void
     {
-        $admin = User::where('role_id', 1)->first();
-        if ($admin) {
+        $cashier = User::find($transaction->cashier_id);
+
+        if ($cashier) {
+            // Simpan notifikasi ke database
             notify(
-                'Transaksi Baru',
+                'Transaksi Berhasil',
                 'Transaksi ' . $transaction->transaction_code . ' berhasil dengan total Rp ' . number_format($transaction->total, 0, ',', '.'),
                 'transaction',
                 'transaction_' . $transaction->id,
-                $admin->id
+                $cashier->id
             );
+
+            // Kirim FCM ke kasir
+            $this->sendFcmToUser(
+                $cashier,
+                'Transaksi Berhasil',
+                'Transaksi ' . $transaction->transaction_code . ' berhasil — Rp ' . number_format($transaction->total, 0, ',', '.'),
+                ['type' => 'transaction', 'transaction_id' => (string) $transaction->id]
+            );
+        }
+    }
+
+    // =========================
+    // Kirim FCM Push Notification
+    // =========================
+    private function sendFcmToUser(User $user, string $title, string $body, array $data = []): void
+    {
+        try {
+            if (empty($user->fcm_token)) {
+                Log::info('FCM skip — token kosong untuk user: ' . $user->name);
+                return;
+            }
+
+            if (!app()->bound('firebase.messaging')) {
+                Log::error('FCM error: Service firebase.messaging belum terdaftar di Laravel Provider.');
+                return;
+            }
+
+            $messaging = app('firebase.messaging');
+
+            // Menggunakan sintaks yang kompatibel lintas versi kreait SDK
+            $message = CloudMessage::new()
+                ->toToken($user->fcm_token)
+                ->withNotification(FcmNotification::create($title, $body))
+                ->withData(array_merge($data, [
+                    'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
+                ]));
+
+            $messaging->send($message);
+
+            Log::info('FCM berhasil dikirim ke ' . $user->name . ': ' . $title);
+
+        } catch (\Throwable $e) { 
+            Log::error('FCM Fatal Error: ' . $e->getMessage() . ' di file ' . $e->getFile() . ' baris ' . $e->getLine());
         }
     }
 }
