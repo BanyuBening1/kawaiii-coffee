@@ -7,8 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProductIngredients extends Model
 {
-    // Jika Anda tidak butuh timestamps di tabel pivot, set false
-    public $timestamps = true;
+    protected $table = 'product_ingredients';
 
     protected $fillable = [
         'product_id',
@@ -16,23 +15,15 @@ class ProductIngredients extends Model
         'quantity',
     ];
 
-    protected $casts = [
-        'quantity' => 'float',
-    ];
-
-    /**
-     * Relasi ke Produk
-     */
-    public function product(): BelongsTo
-    {
-        return $this->belongsTo(Products::class);
-    }
-
-    /**
-     * Relasi ke Bahan Baku
-     */
+    // 🟢 Relasi ke Model Ingredients (Bahan)
     public function ingredient(): BelongsTo
     {
-        return $this->belongsTo(Ingredients::class);
+        return $this->belongsTo(Ingredients::class, 'ingredient_id');
+    }
+
+    // 🟢 Relasi ke Model Products (Produk)
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Products::class, 'product_id');
     }
 }

@@ -129,7 +129,7 @@ class TransactionsController extends Controller
                     'transaction_id'   => $transaction->id,
                     'transaction_code' => $transaction->transaction_code,
                     'snap_token'       => $snapToken,
-                    'client_key'       => env('MIDTRANS_CLIENT_KEY'),
+                    'client_key'       => config('midtrans.client_key'),
                     'total'            => $calculated['subtotal'],
                 ]);
             });

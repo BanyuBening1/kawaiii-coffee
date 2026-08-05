@@ -19,7 +19,7 @@ class ProductIngredientsController extends Controller
             ->findOrFail($productId);
 
         return response()->json([
-            'product' => $product->product_name,
+            'product' => $product->name, // 🟢 Disesuaikan dari product_name ke name
             'ingredients' => $product->productIngredients
         ]);
     }
@@ -96,7 +96,7 @@ class ProductIngredientsController extends Controller
             'product_id' => 'required|exists:products,id',
             'ingredients' => 'required|array|min:1',
             'ingredients.*.ingredient_id' => 'required|exists:ingredients,id',
-            'ingredients.*.quantity' => 'required|numeric|min:1',
+            'ingredients.*.quantity' => 'required|numeric|min:0.01',
         ]);
 
         DB::beginTransaction();

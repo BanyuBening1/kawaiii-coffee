@@ -4,10 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\DetailTransaction;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Products extends Model
 {
+    use HasFactory, SoftDeletes;
+
     protected $fillable = [
         'name',
         'categories_id',
@@ -31,9 +36,16 @@ class Products extends Model
 
     public function getMarginAttribute(): float
     {
-        return $floatSelling = (float) $this->selling_price - (float) $this->cost_price;
+        return (float) $this->selling_price - (float) $this->cost_price;
     }
 
+    // 🟢 1. Relasi HasMany ke Model Pivot ProductIngredients (Penting untuk Eager Loading productIngredients.ingredient)
+    public function productIngredients(): HasMany
+    {
+        return $this->hasMany(ProductIngredients::class, 'product_id');
+    }
+
+    // 🟢 2. Relasi BelongsToMany Direct ke Ingredients
     public function ingredients(): BelongsToMany
     {
         return $this->belongsToMany(Ingredients::class, 'product_ingredients', 'product_id', 'ingredient_id')

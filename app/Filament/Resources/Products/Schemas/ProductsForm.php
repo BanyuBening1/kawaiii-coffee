@@ -12,6 +12,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Illuminate\Validation\Rules\Unique;
 
 class ProductsForm
 {
@@ -27,11 +28,15 @@ class ProductsForm
                     ->columns(3)
                     ->schema([
                         TextInput::make('name')
-                            ->label('Nama Produk')
-                            ->placeholder('Contoh: Kopi Arabika Gayo 250g')
-                            ->required()
-                            ->maxLength(255)
-                            ->columnSpan(2),
+                        ->label('Nama Produk')
+                        ->placeholder('Contoh: Kopi Arabika Gayo 250g')
+                        ->required()
+                        ->maxLength(255)
+                        ->unique(ignoreRecord: true)
+                        ->validationMessages([
+                            'unique' => 'Nama produk sudah digunakan.',
+                        ])
+                        ->columnSpan(2),
 
                         Select::make('categories_id')
                             ->label('Kategori')
@@ -69,13 +74,17 @@ class ProductsForm
                     ->icon('heroicon-o-currency-dollar')
                     ->columns(2)
                     ->schema([
-                        TextInput::make('selling_price')
-                            ->label('Harga Jual')
-                            ->required()
-                            ->numeric()
-                            ->prefix('Rp')
-                            ->minValue(0)
-                            ->live(onBlur: true),
+                       TextInput::make('selling_price')
+                        ->label('Harga Jual')
+                        ->required()
+                        ->numeric()
+                        ->prefix('Rp')
+                        ->minValue(0)
+                        ->gte('cost_price')
+                        ->validationMessages([
+                            'gte' => 'Harga jual tidak boleh kurang dari harga modal.',
+                        ])
+                        ->live(onBlur: true),
 
                         TextInput::make('cost_price')
                             ->label('Harga Modal')

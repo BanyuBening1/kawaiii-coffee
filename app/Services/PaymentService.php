@@ -12,9 +12,9 @@ class PaymentService
 {
     public function __construct()
     {
-        Config::$serverKey    = env('MIDTRANS_SERVER_KEY');
-        Config::$clientKey    = env('MIDTRANS_CLIENT_KEY');
-        Config::$isProduction = env('MIDTRANS_IS_PRODUCTION', false);
+        Config::$serverKey    = config('midtrans.server_key');
+        Config::$clientKey    = config('midtrans.client_key');
+        Config::$isProduction = config('midtrans.is_production');
         Config::$isSanitized  = true;
         Config::$is3ds        = true;
     }
@@ -29,7 +29,7 @@ class PaymentService
                 'order_id'     => $transaction->transaction_code,
                 'gross_amount' => (int) $transaction->total,
             ],
-            'item_details'     => $itemDetails,
+            'item_details' => $itemDetails,
             'customer_details' => [
                 'first_name' => $user->name,
                 'email'      => $user->email,
@@ -45,7 +45,7 @@ class PaymentService
     public function createQris(Transactions $transaction, array $itemDetails): ?string
     {
         $params = [
-            'payment_type'        => 'qris',
+            'payment_type' => 'qris',
             'transaction_details' => [
                 'order_id'     => $transaction->transaction_code,
                 'gross_amount' => (int) $transaction->total,
@@ -75,11 +75,21 @@ class PaymentService
         $paymentType       = $payload['payment_type'] ?? null;
 
         // Verifikasi signature
-        $serverKey    = env('MIDTRANS_SERVER_KEY');
-        $signatureKey = hash('sha512', $orderId . $payload['status_code'] . $payload['gross_amount'] . $serverKey);
+        $serverKey = config('midtrans.server_key');
+
+        $signatureKey = hash(
+            'sha512',
+            $orderId .
+            $payload['status_code'] .
+            $payload['gross_amount'] .
+            $serverKey
+        );
 
         if ($signatureKey !== ($payload['signature_key'] ?? null)) {
-            Log::warning('Midtrans invalid signature', ['order_id' => $orderId]);
+            Log::warning('Midtrans invalid signature', [
+                'order_id' => $orderId,
+            ]);
+
             throw new \Exception('Invalid signature', 403);
         }
 
@@ -94,11 +104,15 @@ class PaymentService
                         'paid_amount'    => $transaction->total,
                         'change_amount'  => 0,
                     ]);
+
                     return 'paid';
                 }
             }
         } elseif (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
-            $transaction->update(['status' => 'cancelled']);
+            $transaction->update([
+                'status' => 'cancelled',
+            ]);
+
             return 'cancelled';
         }
 
